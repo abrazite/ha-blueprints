@@ -1,0 +1,1709 @@
+blueprint:
+  name: "WASP Inovelli Matter Switch With PITA"
+  description: |
+    ## WASP Inovelli Matter Switch With PITA
+    
+    A comprehensive automation blueprint that combines:
+    - **Inovelli Matter Switch Tap Sequences**: Handle tap events from Inovelli Matter switches
+    - **WIAB+ (Wasp in the Box Plus)**: Occupancy detection using door and motion sensors
+    - **Input Boolean Toggle Actions**: Execute actions based on occupancy helper state changes
+    - **PITA (Persistent Interruptible Timer Automation)**: Resilient timer handling that survives HA restarts
+    
+    ### Key Features
+    - Respond to Inovelli switch Up/Down/Config button taps and holds
+    - Detect room occupancy using door sensors and motion sensors ("Wasp in a Box" concept)
+    - Trigger actions when occupancy state changes (on/off)
+    - Persistent timer that fires missed events after HA restarts
+    - Fully configurable collapsible sections for each feature set
+    
+    ### Requirements
+    - Inovelli Matter Switch (VTM30-SN, VTM31-SN, VTM35-SN, VTM36)
+    - Door sensor(s) and motion sensor(s)
+    - Input boolean helper for occupancy tracking
+    - Timer helper with `restore: true` enabled
+    - Input datetime helper for timer expiration tracking
+    
+  domain: automation
+  homeassistant:
+    min_version: 2024.8.0
+
+  input:
+    # =========================================================================
+    # TOP-LEVEL REQUIRED INPUTS
+    # =========================================================================
+    entity_up:
+      name: Event Entity for Up
+      description: |
+        The Event Entity for Up taps from your Inovelli Matter switch.
+        Find it at: Settings > Devices & services > Matter > Select your device > Events > Up
+      selector:
+        entity:
+          filter:
+            - integration: matter
+              domain: event
+              device_class: button
+          multiple: false
+
+    entity_down:
+      name: Event Entity for Down
+      description: |
+        The Event Entity for Down taps from your Inovelli Matter switch.
+      selector:
+        entity:
+          filter:
+            - integration: matter
+              domain: event
+              device_class: button
+          multiple: false
+
+    entity_config:
+      name: Event Entity for Config
+      description: |
+        The Event Entity for Config button taps from your Inovelli Matter switch.
+      selector:
+        entity:
+          filter:
+            - integration: matter
+              domain: event
+              device_class: button
+          multiple: false
+
+    door_sensor:
+      name: Door Sensor or Door Sensor Group
+      description: |
+        Select the door sensor(s) representing the entrance to the "box" — the designated area 
+        where occupancy is detected. In the "Wasp in a Box" concept, this monitors occupants 
+        entering and exiting the space.
+      selector:
+        entity:
+          domain:
+            - binary_sensor
+          multiple: false
+
+    motion_sensor:
+      name: Motion Sensor or Motion Sensor Group
+      description: |
+        Choose the motion sensor(s) responsible for detecting movement within the designated 
+        area ("box"). Crucial for identifying the presence of "wasps" (occupants) within the space.
+      selector:
+        entity:
+          domain:
+            - binary_sensor
+          multiple: false
+
+    occupancy_helper:
+      name: Occupancy Helper
+      description: |
+        Select an input boolean entity to serve as the occupancy helper.
+        This tracks occupancy status and triggers actions when toggled on/off.
+        Create an input_boolean helper in your Home Assistant configuration or UI.
+      selector:
+        entity:
+          domain:
+            - input_boolean
+          multiple: false
+
+    timer_entity:
+      name: Timer entity
+      description: |
+        Select an existing timer or create a new one. 
+        **Important**: Set `restore: true` on the timer helper itself for timers to survive HA restarts.
+      selector:
+        entity:
+          domain: timer
+
+    expiration_datetime:
+      name: Expiration helper
+      description: |
+        Input datetime helper used to store the expected finish time for PITA functionality.
+        Create a new helper and select "Date and time" when asked what you want to input.
+      selector:
+        entity:
+          domain: input_datetime
+
+    # =========================================================================
+    # INOVELLI MATTER SWITCH TAP SEQUENCES
+    # =========================================================================
+    inovelli_up_inputs:
+      name: "Inovelli: Up Button Actions"
+      icon: mdi:arrow-up-thick
+      collapsed: true
+      input:
+        up1:
+          name: Single
+          description: When Up is pressed 1 time
+          default: []
+          selector:
+            action: {}
+        up2:
+          name: Double
+          description: When Up is pressed 2 times
+          default: []
+          selector:
+            action: {}
+        up3:
+          name: Triple
+          description: When Up is pressed 3 times
+          default: []
+          selector:
+            action: {}
+        up4:
+          name: Quadruple
+          description: When Up is pressed 4 times
+          default: []
+          selector:
+            action: {}
+        up5:
+          name: Quintuple
+          description: When Up is pressed 5 times
+          default: []
+          selector:
+            action: {}
+        upHeld:
+          name: Held
+          description: When Up is held
+          default: []
+          selector:
+            action: {}
+        upReleased:
+          name: Released
+          description: When Up is released
+          default: []
+          selector:
+            action: {}
+
+    inovelli_down_inputs:
+      name: "Inovelli: Down Button Actions"
+      icon: mdi:arrow-down-thick
+      collapsed: true
+      input:
+        down1:
+          name: Single
+          description: When Down is pressed 1 time
+          default: []
+          selector:
+            action: {}
+        down2:
+          name: Double
+          description: When Down is pressed 2 times
+          default: []
+          selector:
+            action: {}
+        down3:
+          name: Triple
+          description: When Down is pressed 3 times
+          default: []
+          selector:
+            action: {}
+        down4:
+          name: Quadruple
+          description: When Down is pressed 4 times
+          default: []
+          selector:
+            action: {}
+        down5:
+          name: Quintuple
+          description: When Down is pressed 5 times
+          default: []
+          selector:
+            action: {}
+        downHeld:
+          name: Held
+          description: When Down is held
+          default: []
+          selector:
+            action: {}
+        downReleased:
+          name: Released
+          description: When Down is released
+          default: []
+          selector:
+            action: {}
+
+    inovelli_config_inputs:
+      name: "Inovelli: Config Button Actions"
+      icon: mdi:button-pointer
+      collapsed: true
+      input:
+        config1:
+          name: Single
+          description: When Config is pressed 1 time
+          default: []
+          selector:
+            action: {}
+        config2:
+          name: Double
+          description: When Config is pressed 2 times
+          default: []
+          selector:
+            action: {}
+        config3:
+          name: Triple
+          description: When Config is pressed 3 times
+          default: []
+          selector:
+            action: {}
+        config4:
+          name: Quadruple
+          description: When Config is pressed 4 times
+          default: []
+          selector:
+            action: {}
+        config5:
+          name: Quintuple
+          description: When Config is pressed 5 times
+          default: []
+          selector:
+            action: {}
+        configHeld:
+          name: Held
+          description: When Config is held
+          default: []
+          selector:
+            action: {}
+        configReleased:
+          name: Released
+          description: When Config is released
+          default: []
+          selector:
+            action: {}
+
+    inovelli_binding_inputs:
+      name: "Inovelli: Light Binding"
+      icon: mdi:sync
+      collapsed: true
+      input:
+        entity_light:
+          name: Inovelli Switch Light
+          description: The light entity for the Inovelli Switch
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: light
+              multiple: false
+        target_light:
+          name: Target Light
+          description: |
+            Select the light entity that will be synced to the Inovelli Switch.
+            Hint: to control multiple lights, create a light group.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: light
+              multiple: false
+        brightness_sync:
+          name: Brightness Sync
+          description: |
+            Sync the brightness from the Inovelli Switch to the Target Light.
+            Note: disable if your Switch Mode is set to On/Off.
+          default: true
+          selector:
+            boolean: {}
+        reverse_sync:
+          name: Reverse Sync
+          description: If the Target Light is toggled by an outside source, the Inovelli Switch will sync
+          default: false
+          selector:
+            boolean: {}
+        min_brightness:
+          name: Minimum Brightness
+          description: Set the minimum brightness percent for the Target Light
+          default: 1
+          selector:
+            number:
+              min: 1.0
+              max: 100.0
+              step: 1.0
+              mode: slider
+
+    inovelli_fan_inputs:
+      name: "Inovelli: Fan Binding"
+      icon: mdi:fan
+      collapsed: true
+      input:
+        target_fan:
+          name: Target Fan
+          description: |
+            Select the fan entity synced to Config button.
+            (Held - Off) (Single - Low) (Double - Medium) (Triple - High)
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: fan
+              multiple: false
+
+    # =========================================================================
+    # WIAB+ (WASP IN THE BOX PLUS) OPTIONS
+    # =========================================================================
+    witb_bulb_switch_fan:
+      name: "WIAB+: Bulb, Switch, Fan, or related groups"
+      description: The entities or groups to automate.
+      icon: mdi:lightbulb-group
+      collapsed: true
+      input:
+        light_bulbs:
+          name: Smart Light Bulb or Group (Optional)
+          description: |
+            Select a smart light bulb or group to control based on occupancy.
+            Default: 'light.none' - only change if you intend to use this.
+          default: "light.none"
+          selector:
+            entity:
+              domain:
+                - light
+              multiple: false
+        light_switch:
+          name: Light/Switch or Group (Optional)
+          description: |
+            Choose a light, switch, or group to control based on occupancy.
+            Default: 'light.none' - only change if you intend to use this.
+          default: "light.none"
+          selector:
+            entity:
+              domain:
+                - light
+                - switch
+              multiple: false
+        fan_switch:
+          name: Fan or Fan Group (Optional)
+          description: |
+            Select a fan or group to control based on occupancy.
+            Default: 'fan.none' - only change if you intend to use this.
+          default: "fan.none"
+          selector:
+            entity:
+              domain:
+                - fan
+                - light
+              multiple: false
+
+    witb_occupancy_options:
+      name: "WIAB+: Occupancy Options"
+      description: Occupancy detection settings and sensor delays
+      icon: mdi:motion-sensor
+      collapsed: false
+      input:
+        door_sensor_open_delay:
+          name: Door Sensor Open Delay (Optional)
+          description: |
+            Delay time (seconds) for door sensor to register open event.
+            Helps reduce false events from door activity.
+          default: 0
+          selector:
+            number:
+              mode: box
+              min: 0.0
+              max: 60.0
+              unit_of_measurement: seconds
+              step: 1.0
+        door_sensor_close_delay:
+          name: Door Sensor Close Delay (Optional)
+          description: |
+            Delay time (seconds) for door sensor to register close event.
+          default: 0
+          selector:
+            number:
+              mode: box
+              min: 0.0
+              max: 60.0
+              unit_of_measurement: seconds
+              step: 1.0
+        motion_sensor_delay:
+          name: Motion Off Delay (Optional)
+          description: |
+            Delay time (seconds) for motion sensor to turn off after detecting no movement.
+            Adjust based on your sensor's built-in delay mechanisms.
+          default: 30
+          selector:
+            number:
+              mode: box
+              min: 0.0
+              max: 3600.0
+              unit_of_measurement: seconds
+              step: 1.0
+
+    witb_bypass_options:
+      name: "WIAB+: Bypass Options"
+      description: Bypass mode settings for overriding occupancy detection
+      icon: mdi:debug-step-over
+      collapsed: true
+      input:
+        bypass_mode:
+          name: Bypass Mode (Optional)
+          description: |
+            - No Bypass: Normal operation
+            - Bypass No Auto OFF: Ignores occupancy until manually turned off
+            - Bypass Auto OFF: Temporarily ignores occupancy, auto-reverts after timer
+          default: no_bypass
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - label: No Bypass
+                  value: no_bypass
+                - label: Bypass No Auto OFF
+                  value: bypass_no_auto_off
+                - label: Bypass Auto OFF
+                  value: bypass_auto_off
+              custom_value: false
+              multiple: false
+              sort: false
+        bypass_helper:
+          name: Bypass Helper (Optional)
+          description: |
+            Input boolean for manual bypass control.
+            Default: 'input_boolean.none'
+          default: "input_boolean.none"
+          selector:
+            entity:
+              domain:
+                - input_boolean
+              multiple: false
+        bypass_timer:
+          name: Bypass Auto Off Timer (Optional)
+          description: |
+            Timer for automatic bypass cancellation.
+            Default: 'timer.none'
+          default: "timer.none"
+          selector:
+            entity:
+              domain:
+                - timer
+              multiple: false
+        bypass_finished_action:
+          name: Bypass Action After Timer Finished (Optional)
+          description: Action when bypass timer expires.
+          default: turn_off
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - label: Turn Off
+                  value: turn_off
+                - label: Do Nothing
+                  value: do_nothing
+              custom_value: false
+              multiple: false
+              sort: false
+        idle_timer:
+          name: Idle Timer (Optional)
+          description: |
+            Timer for idle detection (e.g., closet with door shut, no motion, light on).
+            Default: 'timer.none'
+          default: "timer.none"
+          selector:
+            entity:
+              domain:
+                - timer
+              multiple: false
+
+    witb_light_control:
+      name: "WIAB+: Light Control Options"
+      description: Light control mode and feature settings
+      icon: mdi:lightbulb-cog
+      collapsed: true
+      input:
+        light_control:
+          name: Light Control
+          description: What controls lighting effects?
+          default: none
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - label: None
+                  value: none
+                - label: Bulb
+                  value: bulb
+                - label: Switch
+                  value: switch
+              custom_value: false
+              multiple: false
+              sort: false
+        light_control_features:
+          name: Light Control Features
+          description: What light features to control?
+          default: []
+          selector:
+            select:
+              multiple: true
+              options:
+                - label: Use brightness
+                  value: "use_brightness"
+                - label: Use colour temperature
+                  value: "use_colour_temperature"
+                - label: Use transition
+                  value: "use_transition"
+        light_brightness_pct:
+          name: Light Brightness Percentage (Optional)
+          description: Light brightness percentage 1 to 100%.
+          default: 100
+          selector:
+            number:
+              mode: box
+              min: 1
+              max: 100
+              unit_of_measurement: percentage
+              step: 1
+        light_temperature:
+          name: Light Temperature (Optional)
+          description: Light temperature in Kelvin (2000 to 6500)
+          default: 4000
+          selector:
+            number:
+              mode: box
+              min: 2000
+              max: 6500
+              unit_of_measurement: kelvin
+              step: 1
+        light_transition:
+          name: Light Transition (Optional)
+          description: Light transition 0 to 10 seconds
+          default: 0
+          selector:
+            number:
+              mode: box
+              min: 0
+              max: 10
+              unit_of_measurement: seconds
+              step: 1
+
+    # =========================================================================
+    # OCCUPANCY HELPER TOGGLE ACTIONS (merged Input Boolean Toggle Actions)
+    # =========================================================================
+    occupancy_toggle_actions:
+      name: "Occupancy Helper: Toggle Actions"
+      description: Actions to perform when occupancy helper state changes
+      icon: mdi:toggle-switch
+      collapsed: true
+      input:
+        actions_on:
+          name: Actions When Occupied (On)
+          description: Actions to perform when occupancy helper is turned on (optional).
+          default: []
+          selector:
+            action: {}
+        actions_off:
+          name: Actions When Vacant (Off)
+          description: Actions to perform when occupancy helper is turned off (optional).
+          default: []
+          selector:
+            action: {}
+
+    # =========================================================================
+    # PITA - PERSISTENT INTERRUPTIBLE TIMER AUTOMATION
+    # =========================================================================
+    pita_options:
+      name: "PITA: Timer Options"
+      description: Persistent timer settings for resilient timer handling
+      icon: mdi:timer-cog
+      collapsed: true
+      input:
+        restart_tolerance:
+          name: Restart Tolerance
+          description: |
+            Check to handle timers that would have fired when HA was down.
+            If enabled, missed timers will fire their events as soon as HA starts.
+          default: true
+          selector:
+            boolean: {}
+        pita_conditions:
+          name: Optional Conditions
+          description: |
+            User-defined conditions that must be met for timer actions to fire.
+            Be mindful of slow-to-boot devices if using conditions after restart.
+          default: []
+          selector:
+            condition: {}
+        on_timer_started:
+          name: On Timer Started
+          description: Actions when timer starts
+          default: []
+          selector:
+            action: {}
+        on_timer_restarted:
+          name: On Timer Restarted
+          description: Actions when timer restarts
+          default: []
+          selector:
+            action: {}
+        on_timer_paused:
+          name: On Timer Paused
+          description: Actions when timer is paused
+          default: []
+          selector:
+            action: {}
+        on_timer_cancelled:
+          name: On Timer Cancelled
+          description: Actions when timer is cancelled
+          default: []
+          selector:
+            action: {}
+        on_timer_finished:
+          name: On Timer Finished
+          description: Actions when timer finishes
+          default: []
+          selector:
+            action: {}
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+variables:
+  # Top-level inputs
+  door_sensor: !input door_sensor
+  motion_sensor: !input motion_sensor
+  occupancy_helper: !input occupancy_helper
+  timer_entity: !input timer_entity
+  expiry: !input expiration_datetime
+  
+  # Inovelli binding
+  inovelliLight: !input entity_light
+  targetFan: !input target_fan
+  reverseSyncEnabled: !input reverse_sync
+  brightnessSyncEnabled: !input brightness_sync
+  minBrightness: !input min_brightness
+  
+  # WIAB+
+  door_sensor_open_delay: !input door_sensor_open_delay
+  door_sensor_close_delay: !input door_sensor_close_delay
+  motion_sensor_delay: !input motion_sensor_delay
+  light_bulbs: !input light_bulbs
+  light_switch: !input light_switch
+  fan_switch: !input fan_switch
+  bypass_mode: !input bypass_mode
+  bypass_helper: !input bypass_helper
+  bypass_timer: !input bypass_timer
+  bypass_finished_action: !input bypass_finished_action
+  idle_timer: !input idle_timer
+  light_control: !input light_control
+  light_control_features: !input light_control_features
+  light_brightness_pct: !input light_brightness_pct
+  light_temperature: !input light_temperature
+  light_transition: !input light_transition
+  
+  # PITA
+  restart_tolerance: !input restart_tolerance
+
+trigger:
+  # =========================================================================
+  # INOVELLI SWITCH TRIGGERS
+  # =========================================================================
+  - platform: state
+    entity_id: !input entity_up
+    not_from:
+      - unavailable
+    id: up
+
+  - platform: state
+    entity_id: !input entity_down
+    not_from:
+      - unavailable
+    id: down
+
+  - platform: state
+    entity_id: !input entity_config
+    not_from:
+      - unavailable
+    id: config
+
+  - platform: state
+    entity_id: !input entity_light
+    id: turnOff
+    from: "on"
+    to: "off"
+
+  - platform: state
+    enabled: '{{ inovelliLight is not none and not brightnessSyncEnabled }}'
+    entity_id: !input entity_light
+    id: turnOn
+    from: "off"
+    to: "on"
+
+  - platform: state
+    entity_id: !input target_light
+    id: reverseSyncTurnOff
+    from: "on"
+    to: "off"
+
+  - platform: state
+    entity_id: !input target_light
+    id: reverseSyncTurnOn
+    from: "off"
+    to: "on"
+
+  - platform: state
+    enabled: '{{ inovelliLight is not none }}'
+    entity_id: !input entity_light
+    attribute: brightness
+    id: turnOnWithBrightness
+
+  # =========================================================================
+  # WIAB+ TRIGGERS
+  # =========================================================================
+  - platform: state
+    entity_id: !input door_sensor
+    from: "off"
+    to: "on"
+    id: Door Opened
+    for: !input door_sensor_open_delay
+
+  - platform: state
+    entity_id: !input door_sensor
+    from: "on"
+    to: "off"
+    id: Door Closed
+    for: !input door_sensor_close_delay
+
+  - platform: state
+    entity_id: !input door_sensor
+    from: "on"
+    to: "off"
+    id: Door Closed For Seconds
+    for: 62
+
+  - platform: state
+    entity_id: !input motion_sensor
+    from: "off"
+    to: "on"
+    id: Motion On
+
+  - platform: state
+    entity_id: !input motion_sensor
+    from: "on"
+    to: "off"
+    id: Motion Off
+    for: !input motion_sensor_delay
+
+  - platform: state
+    entity_id: !input bypass_helper
+    from: "off"
+    to: "on"
+    id: Bypass Turn on
+
+  - platform: state
+    entity_id: !input bypass_helper
+    from: "on"
+    to: "off"
+    id: Bypass Turn off
+
+  - platform: event
+    event_type: timer.finished
+    event_data:
+      entity_id: !input bypass_timer
+    id: Bypass Timer Finished
+
+  - platform: event
+    event_type: timer.finished
+    event_data:
+      entity_id: !input idle_timer
+    id: Idle Timer Finished
+
+  # =========================================================================
+  # OCCUPANCY HELPER TOGGLE TRIGGERS
+  # =========================================================================
+  - platform: state
+    entity_id: !input occupancy_helper
+    from: "off"
+    to: "on"
+    id: Occupancy On
+
+  - platform: state
+    entity_id: !input occupancy_helper
+    from: "on"
+    to: "off"
+    id: Occupancy Off
+
+  # =========================================================================
+  # PITA TRIGGERS
+  # =========================================================================
+  - platform: event
+    event_type:
+      - timer.started
+      - timer.restarted
+      - timer.paused
+      - timer.cancelled
+      - timer.finished
+    event_data:
+      entity_id: !input timer_entity
+    id: pita_timer_event
+
+  - platform: homeassistant
+    event: start
+    id: ha_start
+
+condition: []
+
+action:
+  - choose:
+      # =====================================================================
+      # INOVELLI UP BUTTON
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id:
+              - up
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_up
+                    attribute: event_type
+                    state: multi_press_1
+                sequence: !input up1
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_up
+                    attribute: event_type
+                    state: multi_press_2
+                sequence: !input up2
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_up
+                    attribute: event_type
+                    state: multi_press_3
+                sequence: !input up3
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_up
+                    attribute: event_type
+                    state: multi_press_4
+                sequence: !input up4
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_up
+                    attribute: event_type
+                    state: multi_press_5
+                sequence: !input up5
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_up
+                    attribute: event_type
+                    state: long_press
+                sequence: !input upHeld
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_up
+                    attribute: event_type
+                    state: long_release
+                sequence: !input upReleased
+
+      # =====================================================================
+      # INOVELLI DOWN BUTTON
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id:
+              - down
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_down
+                    attribute: event_type
+                    state: multi_press_1
+                sequence: !input down1
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_down
+                    attribute: event_type
+                    state: multi_press_2
+                sequence: !input down2
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_down
+                    attribute: event_type
+                    state: multi_press_3
+                sequence: !input down3
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_down
+                    attribute: event_type
+                    state: multi_press_4
+                sequence: !input down4
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_down
+                    attribute: event_type
+                    state: multi_press_5
+                sequence: !input down5
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_down
+                    attribute: event_type
+                    state: long_press
+                sequence: !input downHeld
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_down
+                    attribute: event_type
+                    state: long_release
+                sequence: !input downReleased
+
+      # =====================================================================
+      # INOVELLI CONFIG BUTTON
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id:
+              - config
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_config
+                    attribute: event_type
+                    state: multi_press_1
+                sequence: !input config1
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_config
+                    attribute: event_type
+                    state: multi_press_2
+                sequence: !input config2
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_config
+                    attribute: event_type
+                    state: multi_press_3
+                sequence: !input config3
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_config
+                    attribute: event_type
+                    state: multi_press_4
+                sequence: !input config4
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_config
+                    attribute: event_type
+                    state: multi_press_5
+                sequence: !input config5
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_config
+                    attribute: event_type
+                    state: long_press
+                sequence: !input configHeld
+              - conditions:
+                  - condition: state
+                    entity_id: !input entity_config
+                    attribute: event_type
+                    state: long_release
+                sequence: !input configReleased
+          # Fan binding on config button
+          - if:
+              - condition: template
+                value_template: "{{ targetFan != [] }}"
+            then:
+              - choose:
+                  - conditions:
+                      - condition: state
+                        entity_id: !input entity_config
+                        attribute: event_type
+                        state: multi_press_1
+                    sequence:
+                      - action: fan.turn_on
+                        data:
+                          percentage: 33
+                        target:
+                          entity_id: !input target_fan
+                  - conditions:
+                      - condition: state
+                        entity_id: !input entity_config
+                        attribute: event_type
+                        state: multi_press_2
+                    sequence:
+                      - action: fan.turn_on
+                        data:
+                          percentage: 66
+                        target:
+                          entity_id: !input target_fan
+                  - conditions:
+                      - condition: state
+                        entity_id: !input entity_config
+                        attribute: event_type
+                        state: multi_press_3
+                    sequence:
+                      - action: fan.turn_on
+                        data:
+                          percentage: 100
+                        target:
+                          entity_id: !input target_fan
+                  - conditions:
+                      - condition: state
+                        entity_id: !input entity_config
+                        attribute: event_type
+                        state: long_press
+                    sequence:
+                      - action: fan.turn_off
+                        target:
+                          entity_id: !input target_fan
+
+      # =====================================================================
+      # INOVELLI LIGHT BINDING - TURN OFF
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id:
+              - turnOff
+        sequence:
+          - action: light.turn_off
+            data: {}
+            target:
+              entity_id: !input target_light
+
+      # =====================================================================
+      # INOVELLI LIGHT BINDING - TURN ON
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id:
+              - turnOn
+        sequence:
+          - action: light.turn_on
+            data: {}
+            target:
+              entity_id: !input target_light
+
+      # =====================================================================
+      # INOVELLI LIGHT BINDING - REVERSE SYNC
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id:
+              - reverseSyncTurnOff
+              - reverseSyncTurnOn
+        sequence:
+          - if: '{{ reverseSyncEnabled }}'
+            then:
+              - choose:
+                  - conditions:
+                      - condition: trigger
+                        id:
+                          - reverseSyncTurnOff
+                    sequence:
+                      - action: light.turn_off
+                        target:
+                          entity_id: !input entity_light
+                        data: {}
+                  - conditions:
+                      - condition: trigger
+                        id:
+                          - reverseSyncTurnOn
+                    sequence:
+                      - action: light.turn_on
+                        target:
+                          entity_id: !input entity_light
+                        data: {}
+
+      # =====================================================================
+      # INOVELLI LIGHT BINDING - BRIGHTNESS SYNC
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id:
+              - turnOnWithBrightness
+          - condition: state
+            entity_id: !input entity_light
+            state: "on"
+        sequence:
+          - variables:
+              inovelliLightBrightness: |
+                {{ (state_attr(inovelliLight, 'brightness') / 2.55) }}
+              targetBrightnessPct: |
+                {{ (((100 - minBrightness) / 100 ) * inovelliLightBrightness + minBrightness ) | round(0) }}
+          - choose:
+              - conditions: '{{ inovelliLightBrightness != 0 }}'
+                sequence:
+                  - action: light.turn_on
+                    data:
+                      brightness_pct: '{{ targetBrightnessPct }}'
+                    target:
+                      entity_id: !input target_light
+
+      # =====================================================================
+      # WIAB+: DOOR CLOSED
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Door Closed
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ occupancy_helper != 'input_boolean.none' }}"
+            then:
+              - action: homeassistant.turn_on
+                data: {}
+                target:
+                  entity_id: !input occupancy_helper
+          - if:
+              - condition: template
+                value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+            then:
+              - condition: state
+                state: "on"
+                entity_id: !input bypass_helper
+              - stop: Bypass Enabled
+          - if:
+              - condition: and
+                conditions:
+                  - condition: template
+                    value_template: "{{ light_bulbs != 'light.none' }}"
+                  - condition: state
+                    entity_id: !input light_bulbs
+                    state: "off"
+            then:
+              - choose:
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ light_control == 'bulb' }}"
+                    sequence:
+                      - choose:
+                          - conditions:
+                              - condition: template
+                                value_template: "{{ light_control_features | list | length == 3 }}"
+                            sequence:
+                              - action: light.turn_on
+                                data:
+                                  transition: !input light_transition
+                                  kelvin: !input light_temperature
+                                  brightness_pct: !input light_brightness_pct
+                                target:
+                                  entity_id: !input light_bulbs
+                        default:
+                          - action: homeassistant.turn_on
+                            target:
+                              entity_id: !input light_bulbs
+                default:
+                  - action: homeassistant.turn_on
+                    target:
+                      entity_id: !input light_bulbs
+          - if:
+              - condition: template
+                value_template: "{{ light_switch != 'light.none' }}"
+            then:
+              - condition: state
+                entity_id: !input light_switch
+                state: "off"
+              - action: homeassistant.turn_on
+                data: {}
+                target:
+                  entity_id: !input light_switch
+          - if:
+              - condition: template
+                value_template: "{{ fan_switch != 'fan.none' }}"
+            then:
+              - condition: state
+                entity_id: !input fan_switch
+                state: "off"
+              - action: homeassistant.turn_on
+                data: {}
+                target:
+                  entity_id: !input fan_switch
+
+      # =====================================================================
+      # WIAB+: DOOR OPENED (MOTION CLEARED)
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Door Opened
+          - condition: state
+            state: "off"
+            entity_id: !input motion_sensor
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ occupancy_helper != 'input_boolean.none' }}"
+            then:
+              - action: homeassistant.turn_off
+                data: {}
+                target:
+                  entity_id: !input occupancy_helper
+          - if:
+              - condition: template
+                value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+            then:
+              - condition: state
+                state: "on"
+                entity_id: !input bypass_helper
+              - stop: Bypass Enabled
+          - if:
+              - condition: and
+                conditions:
+                  - condition: template
+                    value_template: "{{ light_bulbs != 'light.none' }}"
+                  - condition: state
+                    entity_id: !input light_bulbs
+                    state: "on"
+            then:
+              - action: light.turn_off
+                target:
+                  entity_id: !input light_bulbs
+          - if:
+              - condition: template
+                value_template: "{{ light_switch != 'light.none' }}"
+            then:
+              - condition: state
+                entity_id: !input light_switch
+                state: "on"
+              - action: homeassistant.turn_off
+                data: {}
+                target:
+                  entity_id: !input light_switch
+          - if:
+              - condition: template
+                value_template: "{{ fan_switch != 'fan.none' }}"
+            then:
+              - condition: state
+                entity_id: !input fan_switch
+                state: "on"
+              - action: homeassistant.turn_off
+                data: {}
+                target:
+                  entity_id: !input fan_switch
+
+      # =====================================================================
+      # WIAB+: MOTION DETECTED
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Motion On
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ occupancy_helper != 'input_boolean.none' }}"
+            then:
+              - action: homeassistant.turn_on
+                data: {}
+                target:
+                  entity_id: !input occupancy_helper
+          - if:
+              - condition: template
+                value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+            then:
+              - condition: state
+                state: "on"
+                entity_id: !input bypass_helper
+              - stop: Bypass Enabled
+          - if:
+              - condition: and
+                conditions:
+                  - condition: template
+                    value_template: "{{ light_bulbs != 'light.none' }}"
+                  - condition: state
+                    entity_id: !input light_bulbs
+                    state: "off"
+            then:
+              - action: homeassistant.turn_on
+                target:
+                  entity_id: !input light_bulbs
+          - if:
+              - condition: template
+                value_template: "{{ light_switch != 'light.none' }}"
+            then:
+              - condition: state
+                entity_id: !input light_switch
+                state: "off"
+              - action: homeassistant.turn_on
+                data: {}
+                target:
+                  entity_id: !input light_switch
+          - if:
+              - condition: template
+                value_template: "{{ fan_switch != 'fan.none' }}"
+            then:
+              - condition: state
+                entity_id: !input fan_switch
+                state: "off"
+              - action: homeassistant.turn_on
+                data: {}
+                target:
+                  entity_id: !input fan_switch
+          - if:
+              - condition: and
+                conditions:
+                  - condition: template
+                    value_template: "{{ idle_timer != 'timer.none' }}"
+                  - condition: state
+                    entity_id: !input idle_timer
+                    state: active
+            then:
+              - action: timer.cancel
+                target:
+                  entity_id: !input idle_timer
+                data: {}
+              - action: timer.start
+                data: {}
+                target:
+                  entity_id: !input idle_timer
+
+      # =====================================================================
+      # WIAB+: MOTION CLEARED (DOOR OPEN)
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Motion Off
+          - condition: state
+            state: "on"
+            entity_id: !input door_sensor
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ occupancy_helper != 'input_boolean.none' }}"
+            then:
+              - action: homeassistant.turn_off
+                data: {}
+                target:
+                  entity_id: !input occupancy_helper
+          - if:
+              - condition: template
+                value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+            then:
+              - condition: state
+                state: "on"
+                entity_id: !input bypass_helper
+              - stop: Bypass Enabled
+          - if:
+              - condition: and
+                conditions:
+                  - condition: template
+                    value_template: "{{ light_bulbs != 'light.none' }}"
+                  - condition: state
+                    entity_id: !input light_bulbs
+                    state: "on"
+            then:
+              - action: light.turn_off
+                target:
+                  entity_id: !input light_bulbs
+          - if:
+              - condition: template
+                value_template: "{{ light_switch != 'light.none' }}"
+            then:
+              - condition: state
+                entity_id: !input light_switch
+                state: "on"
+              - action: homeassistant.turn_off
+                data: {}
+                target:
+                  entity_id: !input light_switch
+          - if:
+              - condition: template
+                value_template: "{{ fan_switch != 'fan.none' }}"
+            then:
+              - condition: state
+                entity_id: !input fan_switch
+                state: "on"
+              - action: homeassistant.turn_off
+                data: {}
+                target:
+                  entity_id: !input fan_switch
+
+      # =====================================================================
+      # WIAB+: BYPASS TURN ON
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Bypass Turn on
+          - condition: template
+            value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ bypass_timer != 'timer.none' }}"
+            then:
+              - action: timer.start
+                data: {}
+                target:
+                  entity_id: !input bypass_timer
+
+      # =====================================================================
+      # WIAB+: BYPASS TURN OFF
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Bypass Turn off
+          - condition: template
+            value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+          - condition: not
+            conditions:
+              - condition: trigger
+                id: Bypass Timer Finished
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ bypass_timer != 'timer.none' }}"
+            then:
+              - action: timer.finish
+                data: {}
+                target:
+                  entity_id: !input bypass_timer
+
+      # =====================================================================
+      # WIAB+: BYPASS TIMER FINISHED
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Bypass Timer Finished
+          - condition: template
+            value_template: "{{ bypass_mode == 'bypass_auto_off' }}"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+            then:
+              - action: homeassistant.turn_off
+                data: {}
+                target:
+                  entity_id: !input bypass_helper
+          - if:
+              - condition: template
+                value_template: "{{ bypass_finished_action == 'turn_off' }}"
+            then:
+              - if:
+                  - condition: template
+                    value_template: "{{ occupancy_helper != 'input_boolean.none' }}"
+                then:
+                  - action: homeassistant.turn_off
+                    data: {}
+                    target:
+                      entity_id: !input occupancy_helper
+              - if:
+                  - condition: template
+                    value_template: "{{ light_bulbs != 'light.none' }}"
+                then:
+                  - condition: state
+                    entity_id: !input light_bulbs
+                    state: "on"
+                  - action: homeassistant.turn_off
+                    data: {}
+                    target:
+                      entity_id: !input light_bulbs
+              - if:
+                  - condition: template
+                    value_template: "{{ light_switch != 'light.none' }}"
+                then:
+                  - condition: state
+                    entity_id: !input light_switch
+                    state: "on"
+                  - action: homeassistant.turn_off
+                    data: {}
+                    target:
+                      entity_id: !input light_switch
+              - if:
+                  - condition: template
+                    value_template: "{{ fan_switch != 'fan.none' }}"
+                then:
+                  - condition: state
+                    entity_id: !input fan_switch
+                    state: "on"
+                  - action: homeassistant.turn_off
+                    data: {}
+                    target:
+                      entity_id: !input fan_switch
+
+      # =====================================================================
+      # WIAB+: IDLE TIMER FINISHED
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Idle Timer Finished
+          - condition: template
+            value_template: "{{ idle_timer != 'timer.none' }}"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+            then:
+              - condition: state
+                state: "on"
+                entity_id: !input bypass_helper
+              - stop: Bypass Enabled
+          - if:
+              - condition: and
+                conditions:
+                  - condition: state
+                    state: "off"
+                    entity_id: !input motion_sensor
+                  - condition: state
+                    state: "off"
+                    entity_id: !input door_sensor
+            then:
+              - if:
+                  - condition: template
+                    value_template: "{{ occupancy_helper != 'input_boolean.none' }}"
+                then:
+                  - action: homeassistant.turn_off
+                    data: {}
+                    target:
+                      entity_id: !input occupancy_helper
+              - if:
+                  - condition: and
+                    conditions:
+                      - condition: template
+                        value_template: "{{ light_bulbs != 'light.none' }}"
+                      - condition: state
+                        entity_id: !input light_bulbs
+                        state: "on"
+                then:
+                  - action: light.turn_off
+                    target:
+                      entity_id: !input light_bulbs
+              - if:
+                  - condition: template
+                    value_template: "{{ light_switch != 'light.none' }}"
+                then:
+                  - condition: state
+                    entity_id: !input light_switch
+                    state: "on"
+                  - action: homeassistant.turn_off
+                    data: {}
+                    target:
+                      entity_id: !input light_switch
+              - if:
+                  - condition: template
+                    value_template: "{{ fan_switch != 'fan.none' }}"
+                then:
+                  - condition: state
+                    entity_id: !input fan_switch
+                    state: "on"
+                  - action: homeassistant.turn_off
+                    data: {}
+                    target:
+                      entity_id: !input fan_switch
+
+      # =====================================================================
+      # WIAB+: DOOR CLOSED FOR SECONDS (IDLE TIMER START)
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Door Closed For Seconds
+          - condition: template
+            value_template: "{{ idle_timer != 'timer.none' }}"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ bypass_helper != 'input_boolean.none' }}"
+            then:
+              - condition: state
+                state: "on"
+                entity_id: !input bypass_helper
+              - stop: Bypass Enabled
+          - if:
+              - condition: state
+                entity_id: !input idle_timer
+                state: active
+            then:
+              - action: timer.cancel
+                target:
+                  entity_id: !input idle_timer
+                data: {}
+              - action: timer.start
+                data: {}
+                target:
+                  entity_id: !input idle_timer
+            else:
+              - action: timer.start
+                data: {}
+                target:
+                  entity_id: !input idle_timer
+
+      # =====================================================================
+      # OCCUPANCY HELPER TOGGLE: ON
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Occupancy On
+        sequence: !input actions_on
+
+      # =====================================================================
+      # OCCUPANCY HELPER TOGGLE: OFF
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: Occupancy Off
+        sequence: !input actions_off
+
+      # =====================================================================
+      # PITA: TIMER STARTED/RESTARTED
+      # =====================================================================
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ trigger.platform == 'event' and trigger.id == 'pita_timer_event' and 
+                 trigger.event.event_type in ['timer.started','timer.restarted'] }}
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ restart_tolerance }}"
+            then:
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: "{{ expiry }}"
+                data:
+                  datetime: "{{ state_attr(timer_entity, 'finishes_at') }}"
+          - condition: and
+            conditions: !input pita_conditions
+          - choose:
+              - conditions: "{{ trigger.event.event_type == 'timer.started' }}"
+                sequence: !input on_timer_started
+              - conditions: "{{ trigger.event.event_type == 'timer.restarted' }}"
+                sequence: !input on_timer_restarted
+
+      # =====================================================================
+      # PITA: TIMER PAUSED/CANCELLED/FINISHED
+      # =====================================================================
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ trigger.platform == 'event' and trigger.id == 'pita_timer_event' and 
+                 trigger.event.event_type in ['timer.paused','timer.cancelled','timer.finished'] }}
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ restart_tolerance }}"
+            then:
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: "{{ expiry }}"
+                data:
+                  datetime: "1970-01-01 00:00:00"
+          - condition: and
+            conditions: !input pita_conditions
+          - choose:
+              - conditions: "{{ trigger.event.event_type == 'timer.paused' }}"
+                sequence: !input on_timer_paused
+              - conditions: "{{ trigger.event.event_type == 'timer.cancelled' }}"
+                sequence: !input on_timer_cancelled
+              - conditions: "{{ trigger.event.event_type == 'timer.finished' }}"
+                sequence: !input on_timer_finished
+
+      # =====================================================================
+      # PITA: HA START - FIRE MISSED TIMER
+      # =====================================================================
+      - conditions:
+          - condition: trigger
+            id: ha_start
+          - condition: template
+            value_template: "{{ restart_tolerance }}"
+          - condition: template
+            value_template: >-
+              {{
+                states(expiry) not in ['unknown','unavailable','1970-01-01 00:00:00']
+                and utcnow() >= (states(expiry) | as_datetime)
+              }}
+        sequence:
+          - condition: and
+            conditions: !input pita_conditions
+          - action: timer.finish
+            target:
+              entity_id: "{{ timer_entity }}"
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: "{{ expiry }}"
+            data:
+              datetime: "1970-01-01 00:00:00"
